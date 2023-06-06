@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="XWPjW3" name="ASimpleEQ" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" companyName="royminty">
   <MAINGROUP id="SCBxk0" name="ASimpleEQ">
     <GROUP id="{A1936FA8-EE9F-B126-968D-31D1CB51856B}" name="Source">
       <FILE id="Roy0b6" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -32,7 +32,7 @@
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="ASimpleEQ"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="ASimpleEQ" enablePluginBinaryCopyStep="1"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="ASimpleEQ"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
