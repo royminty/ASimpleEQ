@@ -29,6 +29,25 @@ struct ChainSettings
 //helper function that will give our parameters to our data struct
 ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts);
 
+/****
+we use this filter class to manipulate IIR filters with float values. We can choose the filter type, define the parameters of the filter (gain, cut off freq,etc) and process the audio. This is for the peak filter
+****/
+using Filter = juce::dsp::IIR::Filter<float>; //assigns Filter to the class 'juce::dsp::IIR:Filter'.
+
+/****
+using a processorChain, we can connect multiple audio processing units together, this is for the high and low pass
+****/
+using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>; //at max we cut 48db/oct and we can use this processor chain to do so
+
+using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+
+enum ChainPositions
+{
+    LowCut,
+    Peak,
+    HighCut
+};
+
 //==============================================================================
 /**
 */
@@ -79,26 +98,7 @@ public:
     juce::AudioProcessorValueTreeState apvts{ *this, nullptr, "Parameters", createParameterLayout()};
 
 private:
-    /****
-    we use this filter class to manipulate IIR filters with float values. We can choose the filter type, define the parameters of the filter (gain, cut off freq,etc) and process the audio. This is for the peak filter
-    ****/
-    using Filter = juce::dsp::IIR::Filter<float>; //assigns Filter to the class 'juce::dsp::IIR:Filter'.
-
-    /****
-    using a processorChain, we can connect multiple audio processing units together, this is for the high and low pass
-    ****/
-    using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>; //at max we cut 48db/oct and we can use this processor chain to do so
-
-    using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
-
     MonoChain leftChain, rightChain; //two instances of this mono chain to do stereo processing
-
-    enum ChainPositions
-    {
-        LowCut,
-        Peak,
-        HighCut
-    };
 
     void updatePeakFilter(const ChainSettings& chainSettings);
     using Coefficients = Filter::CoefficientsPtr; //this is an alias for updates to the filter coefficients
