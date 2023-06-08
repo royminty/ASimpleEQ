@@ -23,7 +23,6 @@ struct ChainSettings
 {
     float peakFreq{ 0 }, peakGainInDecibels{ 0 }, peakQuality{ 1.f };
     float lowCutFreq{ 0 }, highCutFreq{ 0 };
-    
     Slope lowCutSlope{ Slope::Slope_12 }, highCutSlope{ Slope::Slope_12 };
 };
 
@@ -80,8 +79,14 @@ public:
     juce::AudioProcessorValueTreeState apvts{ *this, nullptr, "Parameters", createParameterLayout()};
 
 private:
-    using Filter = juce::dsp::IIR::Filter<float>;
+    /****
+    we use this filter class to manipulate IIR filters with float values. We can choose the filter type, define the parameters of the filter (gain, cut off freq,etc) and process the audio. This is for the peak filter
+    ****/
+    using Filter = juce::dsp::IIR::Filter<float>; //assigns Filter to the class 'juce::dsp::IIR:Filter'.
 
+    /****
+    using a processorChain, we can connect multiple audio processing units together, this is for the high and low pass
+    ****/
     using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>; //at max we cut 48db/oct and we can use this processor chain to do so
 
     using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
@@ -96,7 +101,7 @@ private:
     };
 
     void updatePeakFilter(const ChainSettings& chainSettings);
-    using Coefficients = Filter::CoefficientsPtr;
+    using Coefficients = Filter::CoefficientsPtr; //this is an alias for updates to the filter coefficients
     static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
 
     template<int Index, typename ChainType, typename CoefficientType>
