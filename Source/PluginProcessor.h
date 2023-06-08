@@ -48,6 +48,11 @@ enum ChainPositions
     HighCut
 };
 
+using Coefficients = Filter::CoefficientsPtr; //this is an alias for updates to the filter coefficients
+static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
+
+Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
+
 //==============================================================================
 /**
 */
@@ -101,8 +106,7 @@ private:
     MonoChain leftChain, rightChain; //two instances of this mono chain to do stereo processing
 
     void updatePeakFilter(const ChainSettings& chainSettings);
-    using Coefficients = Filter::CoefficientsPtr; //this is an alias for updates to the filter coefficients
-    static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
+    
 
     template<int Index, typename ChainType, typename CoefficientType>
     void update(ChainType& chain, const CoefficientType& coefficients)
