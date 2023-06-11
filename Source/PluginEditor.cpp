@@ -57,6 +57,7 @@ void LookAndFeel::drawRotarySlider(juce::Graphics & g,
         r.setSize(strWidth + 4, rswl->getTextHeight() + 2);
         r.setCentre(bounds.getCentre());
 
+        //g.setColour(Colour(82u, 82u, 82u));
         g.setColour(Colours::black);
         g.fillRect(r);
 
@@ -77,6 +78,8 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
 
     auto sliderBounds = getSliderBounds();
 
+
+
     /*g.setColour(Colours::red);
     g.drawRect(getLocalBounds());
     g.setColour(Colours::yellow);
@@ -91,6 +94,32 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
         startAng,
         endAng,
         *this);
+
+    auto center = sliderBounds.toFloat().getCentre();
+    auto radius = sliderBounds.getWidth() * 0.5f;
+
+    g.setColour(Colour(186u, 186u, 186u));
+    g.setFont(getTextHeight());
+
+    auto numChoices = labels.size();
+    for (int i = 0; i < numChoices; ++i)
+    {
+        auto pos = labels[i].pos;
+        jassert(0.f <= pos);
+        jassert(pos <= 1.f);
+
+        auto ang = jmap(pos, 0.f, 1.f, startAng, endAng);
+
+        auto c = center.getPointOnCircumference(radius + getTextHeight() * 0.5f + 1, ang);
+
+        Rectangle<float> r;
+        auto str = labels[i].label;
+        r.setSize(g.getCurrentFont().getStringWidth(str), getTextHeight());
+        r.setCentre(c);
+        r.setY(r.getY() + getTextHeight());
+
+        g.drawFittedText(str, r.toNearestInt(), juce::Justification::centred, 1);
+    }
 }
 
 juce::Rectangle<int> RotarySliderWithLabels::getSliderBounds() const
@@ -152,6 +181,7 @@ ResponseCurveComponent::ResponseCurveComponent(ASimpleEQAudioProcessor& p) : aud
     {
         param->addListener(this);
     }
+    updateChain();
 
     startTimerHz(60);
 }
@@ -175,18 +205,23 @@ void ResponseCurveComponent::timerCallback()
     if (parameterChanged.compareAndSetBool(false, true))
     {
         //update the monochain
-        auto chainSettings = getChainSettings(audioProcessor.apvts);
-        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
-
-        auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
-        auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
-
-        updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
-        updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
+        updateChain();
         //signal a repaint
         repaint();
     }
+}
+
+void ResponseCurveComponent::updateChain()
+{
+    auto chainSettings = getChainSettings(audioProcessor.apvts);
+    auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+
+    auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+    auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+
+    updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+    updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
 }
 void ResponseCurveComponent::paint(juce::Graphics& g)
 {
@@ -211,7 +246,21 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
     for (int i = 0; i < w; ++i)
     {
         double mag = 1.f;
-        auto freq = mapToLog10(double(i) / double(w), 20.0, 20000.0);
+        double freq;
+        //auto freq = mapToLog10(double(i) / double(w), 20.0, 20000.0);
+
+        if (i < w / 3)
+        {
+            freq = mapToLog10(double(i) / double(w / 3), 20.0, 100.0);
+        }
+        else if (i < 2 * w / 3)
+        {
+            freq = mapToLog10(double(i - w / 3) / double(w / 3), 100.0, 1000.0);
+        }
+        else
+        {
+            freq = mapToLog10(double(i - 2 * w / 3) / double(w / 3), 1000.0, 20000.0);
+        }
 
         if (!monoChain.isBypassed<ChainPositions::Peak>())
             mag *= peak.coefficients->getMagnitudeForFrequency(freq, sampleRate);
@@ -253,8 +302,9 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
         responseCurve.lineTo(responseArea.getX() + i, map(mags[i]));
     }
 
-    g.setColour(Colours::orange);
-    g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
+    //g.setColour(Colours::orange);
+    g.setColour(Colour(82, 82, 82));
+    g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 4.f);
 
     g.setColour(Colours::white);
     g.strokePath(responseCurve, PathStrokeType(2.f));
@@ -283,12 +333,15 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
 
+    peakFreqSlider.labels.add({ 0.f, "20Hz" });
+    peakFreqSlider.labels.add({ 1.f, "20kHz" });
+
     for (auto* comp : getComps())
     {
         addAndMakeVisible(comp);
     }
 
-    setSize (600, 400);
+    setSize (600, 480);
 }
 
 ASimpleEQAudioProcessorEditor::~ASimpleEQAudioProcessorEditor()
@@ -301,7 +354,8 @@ void ASimpleEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
     using namespace juce;
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (Colours::black);
+    g.fillAll (Colour (48, 48, 48));
+    //g.setColour(Colours::grey);
 
     
 }
@@ -312,9 +366,12 @@ void ASimpleEQAudioProcessorEditor::resized()
     // subcomponents in your editor..
 
     auto bounds = getLocalBounds();
-    auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
+    float hRatio = 32.f / 100.f; // JUCE_LIVE_CONSTANT(33) / 100.f;
+    auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRatio);
 
     responseCurveComponent.setBounds(responseArea);
+
+    bounds.removeFromTop(5);
 
     auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.33);
     auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.5);
