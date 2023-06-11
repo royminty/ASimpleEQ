@@ -302,7 +302,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ASimpleEQAudioProcessor::cre
 
     layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Freq",
                                                            "Peak Freq",
-                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.0f), 750.f));
+                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.3f), 750.f));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Gain",
                                                            "Peak Gain",
