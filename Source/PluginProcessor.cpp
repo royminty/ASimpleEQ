@@ -116,7 +116,11 @@ void ASimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     leftChannelFifo.prepare(samplesPerBlock);
     rightChannelFifo.prepare(samplesPerBlock);
 
+    osc.initialise([](float x) { return std::sin(x); });
 
+    spec.numChannels = getTotalNumOutputChannels();
+    osc.prepare(spec);
+    osc.setFrequency(1000);
 }
 
 void ASimpleEQAudioProcessor::releaseResources()
@@ -169,6 +173,11 @@ void ASimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     updateFilters();
 
     juce::dsp::AudioBlock<float> block(buffer); //create audio block, to manage a block of audio data
+
+    /*buffer.clear();
+
+    juce::dsp::ProcessContextReplacing<float> stereoContext(block);
+    osc.process(stereoContext);*/
 
     auto leftBlock = block.getSingleChannelBlock(0); //creates seperate audio block channels for left and right channels
     auto rightBlock = block.getSingleChannelBlock(1);
