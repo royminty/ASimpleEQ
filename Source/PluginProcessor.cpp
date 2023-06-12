@@ -113,6 +113,9 @@ void ASimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
     updateFilters();
 
+    leftChannelFifo.prepare(samplesPerBlock);
+    rightChannelFifo.prepare(samplesPerBlock);
+
 
 }
 
@@ -180,6 +183,9 @@ void ASimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     //can pass the contexts to our mono filter chains, we are able to pass the context through the chain
     leftChain.process(leftContext);
     rightChain.process(rightContext);
+
+    leftChannelFifo.update(buffer);
+    rightChannelFifo.update(buffer);
 }
 
 //==============================================================================
