@@ -173,6 +173,18 @@ struct LookAndFeel : juce::LookAndFeel_V4
         float rotaryStartAngle,
         float rotaryEndAngle,
         juce::Slider&) override;
+
+    void drawRotarySliderTextBox(juce::Graphics&,
+        juce::Slider& slider,
+        int x, int y, int width, int height,
+        juce::Colour,
+        juce::Colour,
+        juce::Colour);
+
+    void drawToggleButton(juce::Graphics& g,
+        juce::ToggleButton& toggleButton,
+        bool shouldDrawButtonAsHighlighted,
+        bool shouldDrawButtonAsDown) override;
 };
 
 struct RotarySliderWithLabels : juce::Slider
@@ -249,9 +261,20 @@ private:
 
     MonoChain monoChain;
 
+    void updateResponseCurve();
+
+    //juce::Image background;
+
+    juce::Path responseCurve;
+
     void updateChain();
 
-    juce::Image background;
+    void drawBackgroundGrid(juce::Graphics& g);
+    void drawTextLabels(juce::Graphics& g);
+
+    std::vector<float> getFrequencies();
+    std::vector<float> getGains();
+    std::vector<float> getXs(const std::vector<float>& freqs, float left, float width);
 
     juce::Rectangle<int> getRenderArea();
 
@@ -300,14 +323,23 @@ private:
         highCutSlopeSliderAttachment;
 
     juce::ToggleButton lowcutBypassButton, peakBypassButton, highcutBypassButton, analyzerEnabledButton;
+    
+    juce::Label peakFreqSliderLabel,
+        peakGainSliderLabel,
+        peakQualitySliderLabel,
+        lowCutFreqSliderLabel,
+        highCutFreqSliderLabel,
+        lowCutSlopeSliderLabel,
+        highCutSlopeSliderLabel;
 
     using ButtonAttachment = APVTS::ButtonAttachment;
-    ButtonAttachment lowcutBypassButtonAttachment, 
-        peakBypassButtonAttachment, 
-        highcutBypassButtonAttachment, 
-        analyzerEnabledButtonAttachment;
+    ButtonAttachment lowcutBypassButtonAttachment,
+        peakBypassButtonAttachment,
+        highcutBypassButtonAttachment;
 
     std::vector<juce::Component*> getComps();
+
+    LookAndFeel lnf;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ASimpleEQAudioProcessorEditor)
 };
