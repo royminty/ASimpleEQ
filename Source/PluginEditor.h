@@ -304,6 +304,9 @@ private:
     RotarySliderWithLabels peakFreqSlider,
         peakGainSlider,
         peakQualitySlider,
+        highMidPeakFreqSlider,
+        highMidPeakGainSlider,
+        highMidPeakQualitySlider,
         lowCutFreqSlider,
         highCutFreqSlider,
         lowCutSlopeSlider,
@@ -317,12 +320,15 @@ private:
     Attachment peakFreqSliderAttachment,
         peakGainSliderAttachment,
         peakQualitySliderAttachment,
+        highMidPeakFreqSliderAttachment,
+        highMidPeakGainSliderAttachment,
+        highMidPeakQualitySliderAttachment,
         lowCutFreqSliderAttachment,
         highCutFreqSliderAttachment,
         lowCutSlopeSliderAttachment,
         highCutSlopeSliderAttachment;
 
-    juce::ToggleButton lowcutBypassButton, peakBypassButton, highcutBypassButton, analyzerEnabledButton;
+    juce::ToggleButton lowcutBypassButton, peakBypassButton, highcutBypassButton, highMidPeakBypassButton;
     
     juce::Label peakFreqSliderLabel,
         peakGainSliderLabel,
@@ -335,6 +341,7 @@ private:
     using ButtonAttachment = APVTS::ButtonAttachment;
     ButtonAttachment lowcutBypassButtonAttachment,
         peakBypassButtonAttachment,
+        highMidPeakBypassButtonAttachment,
         highcutBypassButtonAttachment;
 
     std::vector<juce::Component*> getComps();

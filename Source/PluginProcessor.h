@@ -156,11 +156,12 @@ enum Slope
 struct ChainSettings
 {
     float peakFreq{ 0 }, peakGainInDecibels{ 0 }, peakQuality{ 1.f };
+    float highMidPeakFreq{ 0 }, highMidPeakGainInDecibels{ 0 }, highMidPeakQuality{ 1.f };
     float lowCutFreq{ 0 }, highCutFreq{ 0 };
 
     Slope lowCutSlope{ Slope::Slope_12 }, highCutSlope{ Slope::Slope_12 };
 
-    bool lowCutBypassed{ false }, peakBypassed{ false }, highCutBypassed{ false };
+    bool lowCutBypassed{ false }, peakBypassed{ false }, highMidPeakBypassed{ false }, highCutBypassed{ false };
 };
 
 //helper function that will give our parameters to our data struct
@@ -176,12 +177,13 @@ using a processorChain, we can connect multiple audio processing units together,
 ****/
 using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>; //at max we cut 48db/oct and we can use this processor chain to do so
 
-using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, Filter, CutFilter>;
 
 enum ChainPositions
 {
     LowCut,
     Peak,
+    HighMidPeak,
     HighCut
 };
 
@@ -189,6 +191,7 @@ using Coefficients = Filter::CoefficientsPtr; //this is an alias for updates to 
 void updateCoefficients(Coefficients& old, const Coefficients& replacements);
 
 Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
+Coefficients makeHighMidPeakFilter(const ChainSettings& chainSettings, double sampleRate);
 
 template<int Index, typename ChainType, typename CoefficientType>
 void update(ChainType& chain, const CoefficientType& coefficients)
@@ -302,10 +305,7 @@ private:
     MonoChain leftChain, rightChain; //two instances of this mono chain to do stereo processing
 
     void updatePeakFilter(const ChainSettings& chainSettings);
-    
-
-    
-
+    void updateHighMidPeakFilter(const ChainSettings& chainSettings);
     void updateLowCutFilters(const ChainSettings& chainSettings);
     void updateHighCutFilters(const ChainSettings& chainSettings);
 

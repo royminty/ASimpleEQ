@@ -25,8 +25,25 @@ void LookAndFeel::drawRotarySlider(juce::Graphics & g,
 
     auto enabled = slider.isEnabled();
 
-    g.setColour(enabled ? Colour(16u, 124u, 201u) : Colours::dimgrey);
+    
+
+    Colour knobColor;
+    if (slider.getName() == "LowCut Freq" || slider.getName() == "LowCut Slope")
+        knobColor = Colour(32, 32, 32);
+    else if (slider.getName() == "Peak Freq" || slider.getName() == "Peak Gain" || slider.getName() == "Peak Quality")
+        knobColor = Colour(16, 141, 230);
+    else if (slider.getName() == "HighMid Peak Freq" || slider.getName() == "HighMid Peak Gain" || slider.getName() == "HighMid Peak Quality")
+        knobColor = Colour(8, 158, 101);
+    else if (slider.getName() == "HighCut Freq" || slider.getName() == "HighCut Slope")
+        knobColor = Colour(199, 10, 10);
+    else
+        knobColor = Colour(16u, 124u, 201u); // Default color
+
+    g.setColour(enabled ? knobColor : Colours::dimgrey);
     g.fillEllipse(bounds);
+
+    /*g.setColour(enabled ? Colour(16u, 124u, 201u) : Colours::dimgrey);
+    g.fillEllipse(bounds);*/
 
     g.setColour(enabled ? Colour(160u, 160u, 160u) : Colours::dimgrey);
     g.drawEllipse(bounds, 4.f);
@@ -120,8 +137,6 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
     auto range = getRange();
 
     auto sliderBounds = getSliderBounds();
-
-
 
     /*g.setColour(Colours::red);
     g.drawRect(getLocalBounds());
@@ -256,6 +271,7 @@ void ResponseCurveComponent::updateResponseCurve()
 
     auto& lowcut = monoChain.get<ChainPositions::LowCut>();
     auto& peak = monoChain.get<ChainPositions::Peak>();
+    auto& highMidPeak = monoChain.get<ChainPositions::HighMidPeak>();
     auto& highcut = monoChain.get<ChainPositions::HighCut>();
 
     auto sampleRate = audioProcessor.getSampleRate();
@@ -271,6 +287,9 @@ void ResponseCurveComponent::updateResponseCurve()
 
         if (!monoChain.isBypassed<ChainPositions::Peak>())
             mag *= peak.coefficients->getMagnitudeForFrequency(freq, sampleRate);
+
+        if (!monoChain.isBypassed<ChainPositions::HighMidPeak>())
+            mag *= highMidPeak.coefficients->getMagnitudeForFrequency(freq, sampleRate);
 
         if (!monoChain.isBypassed<ChainPositions::LowCut>())
         {
@@ -331,16 +350,16 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
     auto leftChannelFFTPath = leftPathProducer.getPath();
     leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
 
-    g.setColour(Colours::skyblue);
+    g.setColour(Colours::lightgrey);
     g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
 
     auto rightChannelFFTPath = rightPathProducer.getPath();
     rightChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
 
-    g.setColour(Colours::lightyellow);
+    g.setColour(Colours::lightgrey);
     g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
 
-    g.setColour(Colours::white);
+    g.setColour(Colour(16u, 124u, 201u));
     g.strokePath(responseCurve, PathStrokeType(2.f));
 
     Path border;
@@ -517,7 +536,6 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
 void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
 {
     juce::AudioBuffer<float> tempIncomingBuffer;
-
     while (leftChannelFifo->getNumCompleteBuffersAvailable() > 0)
     {
         if (leftChannelFifo->getAudioBuffer(tempIncomingBuffer))
@@ -535,15 +553,9 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
             leftChannelFFTDataGenerator.produceFFTDataForRendering(monoBuffer, -48.f);
         }
     }
-    /*
-    if there are FFT data buffers to pull
-        if we can pull a buffer
-            generate a path
-    */
-    const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
 
-    //48000 / 2048 = 23hz <- bin width
-    const auto binWidth = sampleRate / (double)fftSize;
+    const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
+    const auto binWidth = sampleRate / double(fftSize);
 
     while (leftChannelFFTDataGenerator.getNumAvailableFFTDataBlocks() > 0)
     {
@@ -554,12 +566,7 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
         }
     }
 
-    /*
-    while there are paths that can be pulled
-        pull as many as we can
-            display the most recent path
-    */
-    while (pathProducer.getNumPathsAvailable())
+    while (pathProducer.getNumPathsAvailable() > 0)
     {
         pathProducer.getPath(leftChannelFFTPath);
     }
@@ -591,10 +598,14 @@ void ResponseCurveComponent::updateChain()
 
     monoChain.setBypassed<ChainPositions::LowCut>(chainSettings.lowCutBypassed);
     monoChain.setBypassed<ChainPositions::Peak>(chainSettings.peakBypassed);
+    monoChain.setBypassed<ChainPositions::HighMidPeak>(chainSettings.highMidPeakBypassed);
     monoChain.setBypassed<ChainPositions::HighCut>(chainSettings.highCutBypassed);
 
     auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
     updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+
+    auto highMidPeakCoefficients = makeHighMidPeakFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCoefficients(monoChain.get<ChainPositions::HighMidPeak>().coefficients, highMidPeakCoefficients);
 
     auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
     auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
@@ -627,11 +638,14 @@ juce::Rectangle<int> ResponseCurveComponent::getAnalysisArea()
 }
 
 //==============================================================================
-ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p),
+ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor(ASimpleEQAudioProcessor& p)
+    : AudioProcessorEditor(&p), audioProcessor(p),
     peakFreqSlider(*audioProcessor.apvts.getParameter("Peak Freq"), "Hz"),
     peakGainSlider(*audioProcessor.apvts.getParameter("Peak Gain"), "dB"),
     peakQualitySlider(*audioProcessor.apvts.getParameter("Peak Quality"), ""),
+    highMidPeakFreqSlider(*audioProcessor.apvts.getParameter("HighMid Peak Freq"), "Hz"),
+    highMidPeakGainSlider(*audioProcessor.apvts.getParameter("HighMid Peak Gain"), "dB"),
+    highMidPeakQualitySlider(*audioProcessor.apvts.getParameter("HighMid Peak Quality"), ""),
     lowCutFreqSlider(*audioProcessor.apvts.getParameter("LowCut Freq"), "Hz"),
     highCutFreqSlider(*audioProcessor.apvts.getParameter("HighCut Freq"), "Hz"),
     lowCutSlopeSlider(*audioProcessor.apvts.getParameter("LowCut Slope"), "dB/Oct"),
@@ -641,6 +655,9 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     peakFreqSliderAttachment(audioProcessor.apvts, "Peak Freq", peakFreqSlider),
     peakGainSliderAttachment(audioProcessor.apvts, "Peak Gain", peakGainSlider),
     peakQualitySliderAttachment(audioProcessor.apvts, "Peak Quality", peakQualitySlider),
+    highMidPeakFreqSliderAttachment(audioProcessor.apvts, "HighMid Peak Freq", highMidPeakFreqSlider),
+    highMidPeakGainSliderAttachment(audioProcessor.apvts, "HighMid Peak Gain", highMidPeakGainSlider),
+    highMidPeakQualitySliderAttachment(audioProcessor.apvts, "HighMid Peak Quality", highMidPeakQualitySlider),
     lowCutFreqSliderAttachment(audioProcessor.apvts, "LowCut Freq", lowCutFreqSlider),
     highCutFreqSliderAttachment(audioProcessor.apvts, "HighCut Freq", highCutFreqSlider),
     lowCutSlopeSliderAttachment(audioProcessor.apvts, "LowCut Slope", lowCutSlopeSlider),
@@ -648,6 +665,7 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
 
     lowcutBypassButtonAttachment(audioProcessor.apvts, "LowCut Bypassed", lowcutBypassButton),
     peakBypassButtonAttachment(audioProcessor.apvts, "Peak Bypassed", peakBypassButton),
+    highMidPeakBypassButtonAttachment(audioProcessor.apvts, "HighMid Peak Bypassed", highMidPeakBypassButton),
     highcutBypassButtonAttachment(audioProcessor.apvts, "HighCut Bypassed", highcutBypassButton)
 
 {
@@ -663,6 +681,15 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     peakQualitySlider.labels.add({ 0.f, "0.1" });
     peakQualitySlider.labels.add({ 1.f, "10.0" });
 
+    highMidPeakFreqSlider.labels.add({ 0.f, "20Hz" });
+    highMidPeakFreqSlider.labels.add({ 1.f, "20kHz" });
+
+    highMidPeakGainSlider.labels.add({ 0.f, "-24dB" });
+    highMidPeakGainSlider.labels.add({ 1.f, "+24dB" });
+
+    highMidPeakQualitySlider.labels.add({ 0.f, "0.1" });
+    highMidPeakQualitySlider.labels.add({ 1.f, "10.0" });
+
     lowCutFreqSlider.labels.add({ 0.f, "20Hz" });
     lowCutFreqSlider.labels.add({ 1.f, "20kHz" });
 
@@ -675,6 +702,20 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     highCutSlopeSlider.labels.add({ 0.0f, "12dB" });
     highCutSlopeSlider.labels.add({ 1.f, "48dB" });
 
+    lowCutFreqSlider.setName("LowCut Freq");
+    lowCutSlopeSlider.setName("LowCut Slope");
+    peakFreqSlider.setName("Peak Freq");
+    peakGainSlider.setName("Peak Gain");
+    peakQualitySlider.setName("Peak Quality");
+    highMidPeakFreqSlider.setName("HighMid Peak Freq");
+    highMidPeakGainSlider.setName("HighMid Peak Gain");
+    highMidPeakQualitySlider.setName("HighMid Peak Quality");
+    highCutFreqSlider.setName("HighCut Freq");
+    highCutSlopeSlider.setName("HighCut Slope");
+
+
+
+
     for (auto* comp : getComps())
     {
         addAndMakeVisible(comp);
@@ -686,6 +727,7 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     peakFreqSliderLabel.setJustificationType(juce::Justification::centred);*/
 
     peakBypassButton.setLookAndFeel(&lnf);
+    highMidPeakBypassButton.setLookAndFeel(&lnf);
     lowcutBypassButton.setLookAndFeel(&lnf);
     highcutBypassButton.setLookAndFeel(&lnf);
 
@@ -699,6 +741,18 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
             comp->peakFreqSlider.setEnabled(!bypassed);
             comp->peakGainSlider.setEnabled(!bypassed);
             comp->peakQualitySlider.setEnabled(!bypassed);
+        }
+    };
+
+    highMidPeakBypassButton.onClick = [safePtr]()
+    {
+        if (auto* comp = safePtr.getComponent())
+        {
+            auto bypassed = comp->highMidPeakBypassButton.getToggleState();
+
+            comp->highMidPeakFreqSlider.setEnabled(!bypassed);
+            comp->highMidPeakGainSlider.setEnabled(!bypassed);
+            comp->highMidPeakQualitySlider.setEnabled(!bypassed);
         }
     };
 
@@ -725,12 +779,13 @@ ASimpleEQAudioProcessorEditor::ASimpleEQAudioProcessorEditor (ASimpleEQAudioProc
     };
 
 
-    setSize (600, 520);
+    setSize (800, 520);
 }
 
 ASimpleEQAudioProcessorEditor::~ASimpleEQAudioProcessorEditor()
 {
     peakBypassButton.setLookAndFeel(nullptr);
+    highMidPeakBypassButton.setLookAndFeel(nullptr);
     highcutBypassButton.setLookAndFeel(nullptr);
     lowcutBypassButton.setLookAndFeel(nullptr);
 }
@@ -759,8 +814,9 @@ void ASimpleEQAudioProcessorEditor::resized()
 
     bounds.removeFromTop(5);
 
-    auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.33);
-    auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.5);
+    auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.25);
+    auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.33);
+    auto highMidPeakArea = bounds.removeFromRight(bounds.getWidth() * 0.5);
 
     lowcutBypassButton.setBounds(lowCutArea.removeFromTop(25));
     lowCutFreqSlider.setBounds(lowCutArea.removeFromTop(lowCutArea.getHeight() * 0.5));
@@ -769,6 +825,11 @@ void ASimpleEQAudioProcessorEditor::resized()
     highcutBypassButton.setBounds(highCutArea.removeFromTop(25));
     highCutFreqSlider.setBounds(highCutArea.removeFromTop(highCutArea.getHeight() * 0.5));
     highCutSlopeSlider.setBounds(highCutArea);
+
+    highMidPeakBypassButton.setBounds(highMidPeakArea.removeFromTop(25));
+    highMidPeakFreqSlider.setBounds(highMidPeakArea.removeFromTop(highMidPeakArea.getHeight() * 0.33));
+    highMidPeakGainSlider.setBounds(highMidPeakArea.removeFromTop(highMidPeakArea.getHeight() * 0.5));
+    highMidPeakQualitySlider.setBounds(highMidPeakArea);
 
     peakBypassButton.setBounds(bounds.removeFromTop(25));
     peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33));
@@ -785,6 +846,9 @@ std::vector<juce::Component*> ASimpleEQAudioProcessorEditor::getComps()
         &peakFreqSlider,
         &peakGainSlider,
         &peakQualitySlider,
+        &highMidPeakFreqSlider,
+        &highMidPeakGainSlider,
+        &highMidPeakQualitySlider,
         &lowCutFreqSlider,
         &highCutFreqSlider,
         &lowCutSlopeSlider,
@@ -793,6 +857,7 @@ std::vector<juce::Component*> ASimpleEQAudioProcessorEditor::getComps()
 
         &lowcutBypassButton,
         &peakBypassButton,
+        &highMidPeakBypassButton,
         &highcutBypassButton
     };
 };

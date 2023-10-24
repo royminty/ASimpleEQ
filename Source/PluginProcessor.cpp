@@ -243,11 +243,15 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
     settings.peakFreq = apvts.getRawParameterValue("Peak Freq")->load();
     settings.peakGainInDecibels = apvts.getRawParameterValue("Peak Gain")->load();
     settings.peakQuality = apvts.getRawParameterValue("Peak Quality")->load();
+    settings.highMidPeakFreq = apvts.getRawParameterValue("HighMid Peak Freq")->load();
+    settings.highMidPeakGainInDecibels = apvts.getRawParameterValue("HighMid Peak Gain")->load();
+    settings.highMidPeakQuality = apvts.getRawParameterValue("HighMid Peak Quality")->load();
     settings.lowCutSlope = static_cast<Slope>(apvts.getRawParameterValue("LowCut Slope")->load());
     settings.highCutSlope = static_cast<Slope>(apvts.getRawParameterValue("HighCut Slope")->load());
 
     settings.lowCutBypassed = apvts.getRawParameterValue("LowCut Bypassed")->load() > 0.5f;
     settings.peakBypassed = apvts.getRawParameterValue("Peak Bypassed")->load() > 0.5f;
+    settings.highMidPeakBypassed = apvts.getRawParameterValue("HighMid Peak Bypassed")->load() > 0.5f;
     settings.highCutBypassed = apvts.getRawParameterValue("HighCut Bypassed")->load() > 0.5f;
 
     return settings;
@@ -262,6 +266,15 @@ Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRat
         juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels));
 }
 
+Coefficients makeHighMidPeakFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+    return juce::dsp::IIR::Coefficients<float>::makePeakFilter
+    (sampleRate,
+        chainSettings.highMidPeakFreq,
+        chainSettings.highMidPeakQuality,
+        juce::Decibels::decibelsToGain(chainSettings.highMidPeakGainInDecibels));
+}
+
 void ASimpleEQAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
 {
     auto peakCoefficients = makePeakFilter(chainSettings, getSampleRate());
@@ -271,6 +284,17 @@ void ASimpleEQAudioProcessor::updatePeakFilter(const ChainSettings& chainSetting
 
     updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
     updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+}
+
+void ASimpleEQAudioProcessor::updateHighMidPeakFilter(const ChainSettings& chainSettings)
+{
+    auto highMidPeakCoefficients = makePeakFilter(chainSettings, getSampleRate());
+
+    leftChain.setBypassed<ChainPositions::HighMidPeak>(chainSettings.peakBypassed);
+    rightChain.setBypassed<ChainPositions::HighMidPeak>(chainSettings.peakBypassed);
+
+    updateCoefficients(leftChain.get<ChainPositions::HighMidPeak>().coefficients, highMidPeakCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::HighMidPeak>().coefficients, highMidPeakCoefficients);
 }
 
 void updateCoefficients(Coefficients& old, const Coefficients& replacements)
@@ -315,6 +339,7 @@ void ASimpleEQAudioProcessor::updateFilters()
 
     updateLowCutFilters(chainSettings);
     updatePeakFilter(chainSettings);
+    updateHighMidPeakFilter(chainSettings);
     updateHighCutFilters(chainSettings);
 }
 
@@ -342,17 +367,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout ASimpleEQAudioProcessor::cre
                                                            "Peak Quality",
                                                            juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f), 1.f));
 
-    /*layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Freq",
-        "Peak Freq",
-        juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.3f), 750.f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("HighMid Peak Freq",
+                                                           "HighMid Peak Freq",
+                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.3f), 3000.f));
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Gain",
-        "Peak Gain",
-        juce::NormalisableRange<float>(-24.f, 24.f, 0.5f, 1.f), 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("HighMid Peak Gain",
+                                                           "HighMid Peak Gain",
+                                                           juce::NormalisableRange<float>(-24.f, 24.f, 0.5f, 1.f), 0.0f));
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Quality",
-        "Peak Quality",
-        juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f), 1.f));*/
+    layout.add(std::make_unique<juce::AudioParameterFloat>("HighMid Peak Quality",
+                                                           "HighMid Peak Quality",
+                                                           juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f), 1.f));
 
     juce::StringArray stringArray;
     for (int i = 0; i < 4; ++i)
@@ -368,6 +393,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ASimpleEQAudioProcessor::cre
 
     layout.add(std::make_unique<juce::AudioParameterBool>("LowCut Bypassed", "LowCut Bypassed", false));
     layout.add(std::make_unique<juce::AudioParameterBool>("Peak Bypassed", "Peak Bypassed", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>("HighMid Peak Bypassed", "HighMid Peak Bypassed", false));
     layout.add(std::make_unique<juce::AudioParameterBool>("HighCut Bypassed", "HighCut Bypassed", false));
 
     return layout;
